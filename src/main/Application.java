@@ -3,6 +3,7 @@ package main;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -19,9 +20,12 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.JFileChooser;
 
 public class Application {
+	
+	public final static String ALG = "AES";
 
 	public static void main(String[] args) {
 		
@@ -38,6 +42,24 @@ public class Application {
         System.out.println("Digite la contraseña del archivo");
         String contrasena = obtenerContrasena(scanner);
         
+        SecretKeySpec sk = generarClave(contrasena); 
+        
+        switch (opcion) {
+		case 1: 
+			try {
+				cifrarArchivo(archivo, sk);
+				System.out.println("El archivo ha sido cifrado correctamente");
+			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IOException
+					| IllegalBlockSizeException | BadPaddingException e) {
+				e.printStackTrace();
+			}
+			break;
+		case 2:
+			
+			break;
+		default:
+			System.out.println("La opción seleccionada no es valida");
+		}
 	}
 	
 	public static File seleccionarArchivo() {
@@ -73,28 +95,37 @@ public class Application {
 		return contrasena;
 	}
 	
-	public void cifrarArchivo(File archivo, SecretKey llave) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, FileNotFoundException, IllegalBlockSizeException, BadPaddingException {
-		Cipher cipher = Cipher.getInstance("AES");
-		cipher.init(Cipher.ENCRYPT_MODE, llave);
+	public static void cifrarArchivo(File archivo, SecretKeySpec clave) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
+		Cipher cipher = Cipher.getInstance(ALG);
+		cipher.init(Cipher.ENCRYPT_MODE, clave);
 		
 		FileInputStream inputStream = new FileInputStream(archivo);
+		
+		File encryptedFile = new File("./Archivo_cifrado.txt");
+		FileOutputStream outputStream = new FileOutputStream(encryptedFile);
+		
+		byte[] buffer = new byte[64];
+		int bytesRead;
+		
+		while ((bytesRead = inputStream.read(buffer)) != -1) {
+	        byte[] output = cipher.update(buffer, 0, bytesRead);
+	        if (output != null) {
+	            outputStream.write(output);
+	        }
+	    }
+		
 		byte[] cifrado = cipher.doFinal();
-	    Encoder encoder = Base64.getEncoder();
-		String byteToString = encoder.encodeToString(cifrado);
+		if (cifrado != null) {
+	        outputStream.write(cifrado);
+	    }
+		
+		inputStream.close();
+	    outputStream.close();
 	}
 	
-	public static SecretKey generarLlave(int n) {
-		 KeyGenerator keyGenerator;
-		try {
-			keyGenerator = KeyGenerator.getInstance("AES");
-			keyGenerator.init(n);
-		    SecretKey key = keyGenerator.generateKey();
-		    return key;
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return null;
+	public static SecretKeySpec generarClave(String contrasena) {
+		SecretKeySpec sks = new SecretKeySpec(contrasena.getBytes(), ALG);
+		return sks;
 	}
 	
 	public void descifrarArchivo() {
