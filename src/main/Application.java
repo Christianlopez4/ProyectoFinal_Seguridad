@@ -134,9 +134,8 @@ public class Application {
 	        outputStream.write(cifrado);
 	    }
 		
-		System.out.println("sha1: " + bytesToHex(sha1));
-		System.out.println("salt: " + bytesToHex(salt));
 		saltShaStream.write(sha1);
+		saltShaStream.write("00".getBytes());
 		saltShaStream.write(salt);
 		
 		inputStream.close();
@@ -168,12 +167,7 @@ public class Application {
             }
         } while (numRead != -1);
 		fis.close();
-		// imprimir el sha en hexadecimal
-		/*
-		byte[] x = digest.digest();
-		System.out.println(bytesToHex(x));
-		*/
-		return digest.digest(); //calcular el hash con otra herramienta
+		return digest.digest();
 	}
 	
 	public static byte[] hexToBytes(String str) {
