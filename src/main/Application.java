@@ -55,7 +55,7 @@ public class Application {
         switch (opcion) {
 		case 1: 
 			try {
-				cifrarArchivo(archivo, sk, sha1);
+				cifrarArchivo(archivo, sk, sha1, salt);
 			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IOException
 					| IllegalBlockSizeException | BadPaddingException e) {
 				e.printStackTrace();
@@ -108,7 +108,7 @@ public class Application {
 		 return salt;
 	}
 	
-	public static void cifrarArchivo(File archivo, SecretKey sk, byte[] sha1) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
+	public static void cifrarArchivo(File archivo, SecretKey sk, byte[] sha1, byte[] salt) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
 		Cipher cipher = Cipher.getInstance(ALG);
 		cipher.init(Cipher.ENCRYPT_MODE, sk);
 		
@@ -135,9 +135,9 @@ public class Application {
 	    }
 		
 		System.out.println("sha1: " + bytesToHex(sha1));
-		System.out.println("sk: " + bytesToHex(sk.getEncoded()));
+		System.out.println("salt: " + bytesToHex(salt));
 		saltShaStream.write(sha1);
-		saltShaStream.write(sk.getEncoded());
+		saltShaStream.write(salt);
 		
 		inputStream.close();
 	    outputStream.close();
