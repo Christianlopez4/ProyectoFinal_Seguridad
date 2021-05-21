@@ -6,8 +6,12 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Encoder;
@@ -20,14 +24,18 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.JFileChooser;
 
 public class Application {
-	
+	//AES/CBC/NoPadding
 	public final static String ALG = "AES";
+	public final static int ITERATIONS = 10000;
+	public final static int KEY_LENGTH = 128;
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
 		
 		Scanner scanner = new Scanner(System.in);
 		
@@ -42,12 +50,15 @@ public class Application {
         System.out.println("Digite la contraseña del archivo");
         String contrasena = obtenerContrasena(scanner);
         
-        SecretKeySpec sk = generarClave(contrasena); 
+        byte[] salt = new byte[16];
+        SecretKey sk = obtenerClave(contrasena.toCharArray(), salt);
+        
+        byte[] sha1 = generarHashSha1(archivo);
         
         switch (opcion) {
 		case 1: 
 			try {
-				cifrarArchivo(archivo, sk);
+				cifrarArchivo(archivo, sk, sha1);
 				System.out.println("El archivo ha sido cifrado correctamente");
 			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IOException
 					| IllegalBlockSizeException | BadPaddingException e) {
@@ -95,14 +106,13 @@ public class Application {
 		return contrasena;
 	}
 	
-	public static void cifrarArchivo(File archivo, SecretKeySpec clave) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
+	public static void cifrarArchivo(File archivo, SecretKey sk, byte[] sha1) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
 		Cipher cipher = Cipher.getInstance(ALG);
-		cipher.init(Cipher.ENCRYPT_MODE, clave);
-		
-		FileInputStream inputStream = new FileInputStream(archivo);
+		cipher.init(Cipher.ENCRYPT_MODE, sk);
 		
 		File encryptedFile = new File("./Archivo_cifrado.txt");
-		FileOutputStream outputStream = new FileOutputStream(encryptedFile);
+		FileInputStream inputStream = new FileInputStream(archivo);
+		FileOutputStream outputStream = new FileOutputStream(encryptedFile);		
 		
 		byte[] buffer = new byte[64];
 		int bytesRead;
@@ -119,13 +129,38 @@ public class Application {
 	        outputStream.write(cifrado);
 	    }
 		
+		outputStream.write(sha1);
+		
 		inputStream.close();
 	    outputStream.close();
 	}
 	
-	public static SecretKeySpec generarClave(String contrasena) {
-		SecretKeySpec sks = new SecretKeySpec(contrasena.getBytes(), ALG);
-		return sks;
+	public static SecretKey obtenerClave(char[] password, byte[] salt)
+	        throws NoSuchAlgorithmException, InvalidKeySpecException {
+
+	        SecretKeyFactory factory =    SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+	        KeySpec spec = new PBEKeySpec(password, salt, ITERATIONS, KEY_LENGTH);
+	        SecretKey secret = new SecretKeySpec(factory.generateSecret(spec).getEncoded(), ALG);
+	        return secret;
+
+	    }
+	
+	public static byte[] generarHashSha1(File archivo) throws NoSuchAlgorithmException, IOException {
+		
+		InputStream fis = new FileInputStream(archivo);
+		byte[] buffer = new byte[1024];
+		MessageDigest digest = MessageDigest.getInstance("SHA-1");
+		int numRead;
+		
+		do {
+            numRead = fis.read(buffer);
+            if (numRead > 0) {
+            	digest.update(buffer, 0, numRead);
+            }
+        } while (numRead != -1);
+		fis.close();
+		
+		return digest.digest();
 	}
 	
 	public void descifrarArchivo() {
