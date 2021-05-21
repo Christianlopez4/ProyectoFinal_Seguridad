@@ -2,26 +2,21 @@ package main;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Base64.Encoder;
-import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
@@ -30,10 +25,10 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.swing.JFileChooser;
 
 public class Application {
-	//AES/CBC/NoPadding
 	public final static String ALG = "AES";
 	public final static int ITERATIONS = 10000;
 	public final static int KEY_LENGTH = 128;
+	private static final Random RANDOM = new SecureRandom();
 
 	public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
 		
@@ -49,8 +44,10 @@ public class Application {
         
         System.out.println("Digite la contraseña del archivo");
         String contrasena = obtenerContrasena(scanner);
+        //Contraseña de prueba
+        contrasena = "92AE31A79FEEB2A3";
         
-        byte[] salt = new byte[16];
+        byte[] salt = getSalt();
         SecretKey sk = obtenerClave(contrasena.toCharArray(), salt);
         
         byte[] sha1 = generarHashSha1(archivo);
@@ -59,7 +56,6 @@ public class Application {
 		case 1: 
 			try {
 				cifrarArchivo(archivo, sk, sha1);
-				System.out.println("El archivo ha sido cifrado correctamente");
 			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IOException
 					| IllegalBlockSizeException | BadPaddingException e) {
 				e.printStackTrace();
@@ -106,15 +102,24 @@ public class Application {
 		return contrasena;
 	}
 	
+	public static byte[] getSalt() {
+		 byte[] salt = new byte[16];
+		 RANDOM.nextBytes(salt);
+		 return salt;
+	}
+	
 	public static void cifrarArchivo(File archivo, SecretKey sk, byte[] sha1) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
 		Cipher cipher = Cipher.getInstance(ALG);
 		cipher.init(Cipher.ENCRYPT_MODE, sk);
 		
-		File encryptedFile = new File("./Archivo_cifrado.txt");
-		FileInputStream inputStream = new FileInputStream(archivo);
-		FileOutputStream outputStream = new FileOutputStream(encryptedFile);		
+		File encryptedFile = new File("./resources/files/Archivo_cifrado.txt");
+		File saltShaFile = new File("./resources/files/salt_sha1.txt");
 		
-		byte[] buffer = new byte[64];
+		FileInputStream inputStream = new FileInputStream(archivo);
+		FileOutputStream outputStream = new FileOutputStream(encryptedFile);
+		FileOutputStream saltShaStream = new FileOutputStream(saltShaFile);
+		
+		byte[] buffer = new byte[128];
 		int bytesRead;
 		
 		while ((bytesRead = inputStream.read(buffer)) != -1) {
@@ -129,12 +134,16 @@ public class Application {
 	        outputStream.write(cifrado);
 	    }
 		
-		outputStream.write(sha1);
+		System.out.println("sha1: " + bytesToHex(sha1));
+		System.out.println("sk: " + bytesToHex(sk.getEncoded()));
+		saltShaStream.write(sha1);
+		saltShaStream.write(sk.getEncoded());
 		
 		inputStream.close();
 	    outputStream.close();
+	    saltShaStream.close();
 	}
-	
+
 	public static SecretKey obtenerClave(char[] password, byte[] salt)
 	        throws NoSuchAlgorithmException, InvalidKeySpecException {
 
@@ -159,9 +168,46 @@ public class Application {
             }
         } while (numRead != -1);
 		fis.close();
-		
-		return digest.digest();
+		// imprimir el sha en hexadecimal
+		/*
+		byte[] x = digest.digest();
+		System.out.println(bytesToHex(x));
+		*/
+		return digest.digest(); //calcular el hash con otra herramienta
 	}
+	
+	public static byte[] hexToBytes(String str) {
+	      if (str==null) {
+	         return null;
+	      } else if (str.length() < 2) {
+	         return null;
+	      } else {
+	         int len = str.length() / 2;
+	         byte[] buffer = new byte[len];
+	         for (int i=0; i<len; i++) {
+	             buffer[i] = (byte) Integer.parseInt(
+	                str.substring(i*2,i*2+2),16);
+	         }
+	         return buffer;
+	      }
+
+	   }
+	
+	public static String bytesToHex(byte[] data) {
+	      if (data==null) {
+	         return null;
+	      } else {
+	         int len = data.length;
+	         String str = "";
+	         for (int i=0; i<len; i++) {
+	            if ((data[i]&0xFF)<16) str = str + "0" 
+	               + java.lang.Integer.toHexString(data[i]&0xFF);
+	            else str = str
+	               + java.lang.Integer.toHexString(data[i]&0xFF);
+	         }
+	         return str.toUpperCase();
+	      }
+	   }   
 	
 	public void descifrarArchivo() {
 		
