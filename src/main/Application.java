@@ -83,8 +83,6 @@ public class Application {
 			return f;
 		} catch (NullPointerException e) {
 			System.out.println("No se ha seleccionado ningún fichero");
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
 		}
 		return null;
 	}
