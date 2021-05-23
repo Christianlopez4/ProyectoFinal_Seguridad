@@ -1,7 +1,9 @@
 package main;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,6 +63,14 @@ public class Application {
 		case 2:
 			descifrarArchivo(archivo, sk);
 			System.out.println("Descifrado realizado");
+			
+			boolean isShaOk = validarSHA();
+			if (isShaOk) {
+				System.out.println("El SHA-1 del archivo cifrado y descifrado coinciden");
+			} else {
+				System.out.println("El SHA-1 del archivo cifrado y descifrado NO coinciden");
+			}
+			
 			break;
 		default:
 			System.out.println("La opción seleccionada no es valida");
@@ -105,11 +115,11 @@ public class Application {
 		cipher.init(Cipher.ENCRYPT_MODE, sk);
 		
 		File encryptedFile = new File("./resources/files/Archivo_cifrado.txt");
-		File saltShaFile = new File("./resources/files/sha1.txt");
+		File shaFile = new File("./resources/files/sha1.txt");
 		
 		FileInputStream inputStream = new FileInputStream(archivo);
 		FileOutputStream outputStream = new FileOutputStream(encryptedFile);
-		FileOutputStream shaStream = new FileOutputStream(saltShaFile);
+		FileOutputStream shaStream = new FileOutputStream(shaFile);
 		
 		byte[] buffer = new byte[128];
 		int bytesRead;
@@ -197,9 +207,11 @@ public class Application {
 		cipher.init(Cipher.DECRYPT_MODE, sk);
 		
 		File decryptedFile = new File("./resources/files/Archivo_descifrado.txt");
+		File shaFile = new File("./resources/files/sha2.txt");
 		
 		FileInputStream inputStream = new FileInputStream(archivo);
 		FileOutputStream outputStream = new FileOutputStream(decryptedFile);
+		FileOutputStream shaStream = new FileOutputStream(shaFile);
 		
 		byte[] buffer = new byte[128];
 		int bytesRead;
@@ -216,8 +228,34 @@ public class Application {
 	        outputStream.write(descifrado);
 	    }
 		
+		byte[] sha1 = generarHashSha1(decryptedFile);
+		shaStream.write(sha1);
+		
 		inputStream.close();
 	    outputStream.close();
+	}
+	
+	public static boolean validarSHA() throws IOException {
+		File shaOriginal = new File("./resources/files/sha1.txt");
+		File shaDecrypted = new File("./resources/files/sha2.txt");
+		
+		String sha1 = getSha(shaOriginal);
+		String sha2 = getSha(shaDecrypted);
+		
+		return sha1.equals(sha2);
+	}
+	
+	public static String getSha(File archivo) throws IOException {
+		String result = null;
+
+	    DataInputStream reader = new DataInputStream(new FileInputStream(archivo));
+	    int nBytesToRead = reader.available();
+	    if(nBytesToRead > 0) {
+	        byte[] bytes = new byte[nBytesToRead];
+	        reader.read(bytes);
+	        result = new String(bytes);
+	    }
+		return result;
 	}
 
 }
