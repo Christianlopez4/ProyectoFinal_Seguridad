@@ -28,41 +28,39 @@ public class Application {
 	public final static String ALG = "AES";
 	public final static int ITERATIONS = 10000;
 	public final static int KEY_LENGTH = 128;
-	private static final Random RANDOM = new SecureRandom();
 
-	public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+	public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException, InvalidKeyException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
 		
 		Scanner scanner = new Scanner(System.in);
 		
 		System.out.println("Seleccione el archivo a cifrar o descifrar");
         File archivo = seleccionarArchivo();
 		
+        System.out.println("Digite la contraseña del archivo");
+        String contrasena = obtenerContrasena(scanner);
+        contrasena = "92AE31A79FEEB2A3";
+        SecretKey sk = obtenerClave(contrasena);
+        
 		System.out.println("Seleccione la opción que desea realizar:");
         System.out.println("1. Cifrar archivo");
         System.out.println("2. Descifrar archivo");
         int opcion = obtenerOpcion(scanner);
         
-        System.out.println("Digite la contraseña del archivo");
-        String contrasena = obtenerContrasena(scanner);
-        //Contraseña de prueba
-        contrasena = "92AE31A79FEEB2A3";
-        
-        byte[] salt = getSalt();
-        SecretKey sk = obtenerClave(contrasena.toCharArray(), salt);
-        
-        byte[] sha1 = generarHashSha1(archivo);
-        
         switch (opcion) {
 		case 1: 
 			try {
-				cifrarArchivo(archivo, sk, sha1, salt);
+				byte[] sha1 = generarHashSha1(archivo);
+				
+				cifrarArchivo(archivo, sk, sha1);
+				System.out.println("Cifrado realizado exitosamente. Se ha creado el archivo con el hash SHA-1");
 			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IOException
 					| IllegalBlockSizeException | BadPaddingException e) {
 				e.printStackTrace();
 			}
 			break;
 		case 2:
-			
+			descifrarArchivo(archivo, sk);
+			System.out.println("Descifrado realizado");
 			break;
 		default:
 			System.out.println("La opción seleccionada no es valida");
@@ -102,22 +100,16 @@ public class Application {
 		return contrasena;
 	}
 	
-	public static byte[] getSalt() {
-		 byte[] salt = new byte[16];
-		 RANDOM.nextBytes(salt);
-		 return salt;
-	}
-	
-	public static void cifrarArchivo(File archivo, SecretKey sk, byte[] sha1, byte[] salt) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
+	public static void cifrarArchivo(File archivo, SecretKey sk, byte[] sha1) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, IOException {
 		Cipher cipher = Cipher.getInstance(ALG);
 		cipher.init(Cipher.ENCRYPT_MODE, sk);
 		
 		File encryptedFile = new File("./resources/files/Archivo_cifrado.txt");
-		File saltShaFile = new File("./resources/files/salt_sha1.txt");
+		File saltShaFile = new File("./resources/files/sha1.txt");
 		
 		FileInputStream inputStream = new FileInputStream(archivo);
 		FileOutputStream outputStream = new FileOutputStream(encryptedFile);
-		FileOutputStream saltShaStream = new FileOutputStream(saltShaFile);
+		FileOutputStream shaStream = new FileOutputStream(saltShaFile);
 		
 		byte[] buffer = new byte[128];
 		int bytesRead;
@@ -134,23 +126,20 @@ public class Application {
 	        outputStream.write(cifrado);
 	    }
 		
-		saltShaStream.write(sha1);
-		saltShaStream.write("00".getBytes());
-		saltShaStream.write(salt);
+		shaStream.write(sha1);
 		
 		inputStream.close();
 	    outputStream.close();
-	    saltShaStream.close();
+	    shaStream.close();
 	}
 
-	public static SecretKey obtenerClave(char[] password, byte[] salt)
+	public static SecretKey obtenerClave(String password)
 	        throws NoSuchAlgorithmException, InvalidKeySpecException {
-
+			byte[] salt = new byte[16];
 	        SecretKeyFactory factory =    SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-	        KeySpec spec = new PBEKeySpec(password, salt, ITERATIONS, KEY_LENGTH);
+	        KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
 	        SecretKey secret = new SecretKeySpec(factory.generateSecret(spec).getEncoded(), ALG);
 	        return secret;
-
 	    }
 	
 	public static byte[] generarHashSha1(File archivo) throws NoSuchAlgorithmException, IOException {
@@ -203,8 +192,32 @@ public class Application {
 	      }
 	   }   
 	
-	public void descifrarArchivo() {
+	public static void descifrarArchivo(File archivo, SecretKey sk) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IOException, IllegalBlockSizeException, BadPaddingException {
+		Cipher cipher = Cipher.getInstance(ALG);
+		cipher.init(Cipher.DECRYPT_MODE, sk);
 		
+		File decryptedFile = new File("./resources/files/Archivo_descifrado.txt");
+		
+		FileInputStream inputStream = new FileInputStream(archivo);
+		FileOutputStream outputStream = new FileOutputStream(decryptedFile);
+		
+		byte[] buffer = new byte[128];
+		int bytesRead;
+		
+		while ((bytesRead = inputStream.read(buffer)) != -1) {
+	        byte[] output = cipher.update(buffer, 0, bytesRead);
+	        if (output != null) {
+	            outputStream.write(output);
+	        }
+	    }
+		
+		byte[] descifrado = cipher.doFinal();
+		if (descifrado != null) {
+	        outputStream.write(descifrado);
+	    }
+		
+		inputStream.close();
+	    outputStream.close();
 	}
 
 }
